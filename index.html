@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap" rel="stylesheet">
+    <style>
+        /* Set black background for the viewport */
+        html {
+            background: black;
+        }
+
+        /* Transparent body */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: transparent !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Quicksand', sans-serif;
+        }
+
+        /* Wrapper with a transparent background */
+        .capture-wrapper {
+            background: transparent;
+            position: relative;
+        }
+
+        .greeting-container {
+            text-align: left;
+            max-width: 80vw;
+            position: relative;
+        }
+
+        .greeting {
+            font-size: 1em;
+            color: #fff;
+            opacity: 0;
+            line-height: 1.6;
+        }
+
+        .line {
+            position: relative;
+            white-space: nowrap;
+            clip-path: inset(0 100% 0 0);
+        }
+
+        .particle {
+            position: fixed;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+    </style>
+</head>
+<body>
+<!-- Transparent wrapper -->
+<div class="capture-wrapper">
+    <div class="greeting-container">
+        <div class="greeting">
+            Twas the night before Christmas, deep in the brain,<br>
+            Where neurons in chorus hummed bedtime refrains,<br>
+            Snuggled and bundled in soft myelin wraps.<br>
+            While glia prepared for the evening's long naps.
+        </div>
+    </div>
+</div>
+
+<script>
+    class ParticleSystem {
+        constructor() {
+            this.particles = [];
+        }
+
+        createParticle(x, y) {
+            const particle = {
+                x,
+                y,
+                element: document.createElement('div'),
+                size: Math.random() * 3 + 1,
+                speedX: (Math.random() - 0.5) * 2,
+                speedY: -Math.random() * 1.5 - 0.5,
+                opacity: 1,
+                life: 1
+            };
+
+            particle.element.className = 'particle';
+            particle.element.style.width = particle.size + 'px';
+            particle.element.style.height = particle.size + 'px';
+            document.body.appendChild(particle.element);
+
+            this.particles.push(particle);
+        }
+
+        update() {
+            this.particles.forEach((particle, index) => {
+                particle.life -= 0.02;
+                particle.x += particle.speedX;
+                particle.y += particle.speedY;
+                particle.opacity = particle.life;
+
+                if (particle.life > 0) {
+                    particle.element.style.transform = `translate(${particle.x}px, ${particle.y}px)`;
+                    particle.element.style.opacity = particle.opacity;
+                } else {
+                    particle.element.remove();
+                    this.particles.splice(index, 1);
+                }
+            });
+        }
+    }
+
+    class TextRevealAnimator {
+        constructor() {
+            this.textElement = document.querySelector('.greeting');
+            this.lines = [];
+            this.particleSystem = new ParticleSystem();
+            this.isAnimating = false;
+
+            this.splitTextIntoLines();
+        }
+
+        splitTextIntoLines() {
+            const text = this.textElement.innerHTML;
+            const lines = text.split('<br>');
+            this.textElement.innerHTML = '';
+
+            lines.forEach(lineText => {
+                const line = document.createElement('div');
+                line.className = 'line';
+                line.innerHTML = `<div class="line-inner" style="opacity: 0">${lineText}</div>`;
+                this.textElement.appendChild(line);
+                this.lines.push(line);
+            });
+        }
+
+        async animateLine(line) {
+            const duration = 1500;
+            const inner = line.querySelector('.line-inner');
+            const rect = line.getBoundingClientRect();
+            const startTime = performance.now();
+
+            inner.style.opacity = '1';
+
+            return new Promise(resolve => {
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    line.style.clipPath = `inset(0 ${100 - (progress * 100)}% 0 0)`;
+
+                    if (progress < 1) {
+                        const revealX = rect.left + (rect.width * progress) - 675;
+                        const revealY = rect.top + (rect.height / 2 + (Math.random() - 0.5) * 18) - 315;
+
+                        for (let i = 0; i < 3; i++) {
+                            const offsetX = (Math.random() - 0.5) * 5;
+                            const offsetY = (Math.random() - 0.5) * 5;
+                            this.particleSystem.createParticle(revealX + offsetX, revealY + offsetY);
+                        }
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                };
+
+                requestAnimationFrame(animate);
+            });
+        }
+
+        async animate() {
+            this.isAnimating = true;
+            this.textElement.style.opacity = '1';
+
+            for (const line of this.lines) {
+                await this.animateLine(line);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            this.isAnimating = false;
+        }
+
+        update() {
+            if (this.isAnimating) {
+                this.particleSystem.update();
+                requestAnimationFrame(() => this.update());
+            }
+        }
+    }
+
+    // Initialize and start the animation
+    const animator = new TextRevealAnimator();
+    setTimeout(() => {
+        animator.animate();
+        animator.update();
+    }, 500);
+
+    // If using html2canvas to capture, ensure background transparency
+    function captureCanvas() {
+        html2canvas(document.querySelector('.capture-wrapper'), {
+            backgroundColor: null
+        }).then(canvas => {
+            document.body.appendChild(canvas);
+        });
+    }
+</script>
+</body>
+</html>
